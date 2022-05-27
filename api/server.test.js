@@ -26,14 +26,17 @@ afterAll( async () => {
 test('sanity', () => {
   expect(true).toBe(true)
 })
-describe('server.js' , () => {
-  test('server is up', async() => {
-    let response = await request(server).get('/');
-    expect(response.status).toBe(200);
-    expect(response.body).toEqual('server is up')
-  });
+describe('testing endpoints' , () => {
+
+  describe('server.js', () => {
+    test('server is up', async() => {
+      let response = await request(server).get('/');
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual('server is up')
+    });
+  })
+
   describe('POST /api/auth/register', () => {
-   
     test('adds a newUser to users table with username and password', async() => {
       let response;
      response = await request(server).post('/api/auth/register').send(testUser);
@@ -82,7 +85,6 @@ describe('server.js' , () => {
       userTable = await db('users');
       expect(userTable).toHaveLength(1);
     })
-  
   })
   describe('POST /api/auth/login', () => {
 
@@ -110,22 +112,44 @@ describe('server.js' , () => {
     })
   })
   describe('GET api/jokes', () => {
-    // test('after registered user logs in they are able to access jokes with token', async() => {
-    //   await request(server).post('/api/auth/register').send(testUser);
-    //   let LOGINresponse = await request(server).post('/api/auth/login').send(testUser);
-    //   let GETresponse = await request(server).get('api/jokes').send({authorization: LOGINresponse.body.token})
-    //   expect(GETresponse.status).toBe(200);
-      // let credentials = await (await request(server).get('/api/jokes')).set('response.header', response.body.token)
-      // {...response, authorization: response.body.token}
-      // console.log(credentials)
-    // })
+    test('after registered user logs in they are able to access jokes with token', async() => {
+      await request(server).post('/api/auth/register').send(testUser);
+      let LOGINresponse = await request(server).post('/api/auth/login').send(testUser);
+      let GETresponse = await request(server).get('/api/jokes').set('authorization', LOGINresponse.body.token)
+      expect(GETresponse.status).toBe(200);
+      expect(GETresponse.body).toHaveLength(3);
+
+    })
     test('request to access jokes denied if no token present. error status and message returned', async () => {
       await request(server).post('/api/auth/register').send(testUser);
       await request(server).post('/api/auth/login').send(testUser);
-      let response = await request(server).get('/api/jokes')
+      let response = await request(server).get('/api/jokes');
       expect(response.status).toBe(401);
       expect(response.body).toHaveProperty('message');
       expect(response.body.message).toBe('token required')
+    })
+    test('attempt to view jokes with invalid token returns error status and message', async () => {
+      await request(server).post('/api/auth/register').send(testUser);
+      let LOGINresponse = await request(server).post('/api/auth/login').send(testUser);
+      let GETresponse = await request(server).get('/api/jokes').set('authorization', `123${LOGINresponse.body.token}`);
+      expect(GETresponse.status).toBe(401);
+      expect(GETresponse.body).toHaveProperty('message');
+      expect(GETresponse.body.message).toBe('token invalid');
+    })
+  })
+  describe('GET /api/users', () => {
+    test('users begins as an empty array', async() => {
+      let response = await request(server).get('/api/users');
+      expect(response.body).toHaveLength(0);
+    })
+    test('registering a new user adds a user to the users table', async() => {
+      await request(server).post('/api/auth/register').send(testUser)
+      let response = await request(server).get('/api/users');
+      let user = await db('users').first()
+      expect(response.body).toHaveLength(1);
+      expect(user).toHaveProperty('username', 'jonny');
+      expect(user).toHaveProperty('password');
+      expect(user.password).toMatch(/^\$2[ayb]\$.{56}$/);
     })
   })
 })
