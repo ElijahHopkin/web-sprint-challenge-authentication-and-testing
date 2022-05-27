@@ -6,6 +6,7 @@ const {restricted} = require('./middleware/restricted.js');
 
 const authRouter = require('./auth/auth-router.js');
 const jokesRouter = require('./jokes/jokes-router.js');
+const UsersRouter = require('../api/users/users-router.js')
 
 const server = express();
 
@@ -13,13 +14,14 @@ server.use(helmet());
 server.use(cors());
 server.use(express.json());
 
-
-server.use('/api/auth', authRouter);
-server.use('/api/jokes', restricted, jokesRouter); // only logged-in users should have access!
-
-server.use('/', (req, res) => {
+server.get('/', (req, res) => {
     res.json('server is up')
 })
+
+server.use('/api/auth', authRouter);
+server.use('/api/users', UsersRouter);
+server.use('/api/jokes', restricted, jokesRouter); // only logged-in users should have access!
+
 
 server.use((err, req, res, next) => {
     res.status(err.status || 500).json({

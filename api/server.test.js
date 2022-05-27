@@ -6,9 +6,9 @@ const AuthRoutes = require('../api/auth/auth-router');
 const Middleware = require('../api/middleware/restricted')
 const Users = require('../api/users/users-model')
 // Write your tests here
-test('sanity', () => {
-  expect(true).toBe(true)
-})
+
+const testUser = {username: 'jonny', password: '1234'}
+const incompleteUser = {username: 'sandra'}
 
 beforeAll(async () => {
   await db.migrate.rollback();
@@ -23,20 +23,75 @@ afterAll( async () => {
   await db.destroy();
 })
 
-describe('endpoint tests', () => {
+test('sanity', () => {
+  expect(true).toBe(true)
+})
+describe('server.js' , () => {
   test('server is up', async() => {
     let response = await request(server).get('/');
     expect(response.status).toBe(200);
     expect(response.body).toEqual('server is up')
   });
+  describe('POST /api/auth/register', () => {
+   
+    test('adds a newUser to users table with username and password', async() => {
+      let response;
+     response = await request(server).post('/api/auth/register').send(testUser);
+     let newUser = await db('users').first();
+    //  console.log(newUser);
+      expect(response.status).toBe(201);
+      expect(newUser).toHaveProperty('username', 'jonny')
+      expect(newUser).toHaveProperty('id');
+      expect(newUser).toHaveProperty('password')
+      expect(newUser.password).toMatch(/^\$2[ayb]\$.{56}$/)//regex for password bcrypt
+      
+      await request(server).get('/api/users')
+      let userTable = await db('users')
+      expect(userTable).toHaveLength(1);
+    })
+    test('rejects and incomplete registration, and returns the proper error', async () => {
+      let response = await request(server).post('/api/auth/register').send(incompleteUser);
+      let newUser = await db('users').first();
+      expect(response.status).toBe(400);
+      expect(response.body).toMatchObject({message: 'username and password required'});
+      expect(newUser).toBeUndefined();
+  
+      await request(server).get('/api/users')
+      let userTable = await db('users')
+      expect(userTable).toHaveLength(0)
+    })
+    test('rejects attempt to register if username is not unique', async() => {
+      let response = await request(server).post('/api/auth/register').send(testUser);
+     let newUser = await db('users').first();
+      expect(response.status).toBe(201);
+      expect(newUser).toHaveProperty('username', 'jonny')
+      expect(newUser).toHaveProperty('id');
+      expect(newUser).toHaveProperty('password')
+      
+      await request(server).get('/api/users')
+      let userTable = await db('users')
+      expect(userTable).toHaveLength(1);
 
-  test('POST /register', async() => {
-    let response;
-    response= await request(server).post('/auth/register').send({username: 'jonny', password: 1234});
-    console.log(response)
-    expect(response.status).toBe(201);
-    // expect(response.body).toHaveProperty('username', 'jonny')
+      response = await request(server).post('/api/auth/register').send(testUser);
+       newUser = await db('users').where('id', 2);
+      expect(response.status).toBe(422);
+      expect(response.body).toMatchObject({message: 'username taken'})
+      expect(newUser).toHaveLength(0);
 
+      await request(server).get('/api/users');
+      userTable = await db('users');
+      expect(userTable).toHaveLength(1);
+    })
+  
+  })
+  describe('POST /api/auth/login', () => {
+    test('POST /login', async() => {
+      let response;
+      response = await request(server).post('/auth/login').send(testUser);
+      expect(response.status).toBe(200);
+      expect(response.body).toHaveProperty('username', 'jonny')
+    })
+  
   })
 })
 
