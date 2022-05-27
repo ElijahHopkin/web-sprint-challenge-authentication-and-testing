@@ -118,7 +118,7 @@ describe('server.js' , () => {
       // let credentials = await (await request(server).get('/api/jokes')).set('response.header', response.body.token)
       // {...response, authorization: response.body.token}
       // console.log(credentials)
-    })
+    // })
     test('request to access jokes denied if no token present. error status and message returned', async () => {
       await request(server).post('/api/auth/register').send(testUser);
       await request(server).post('/api/auth/login').send(testUser);
